@@ -1,0 +1,52 @@
+name: Build and Deploy Landing Page to AWS
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  landing-portal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+
+      - name: Install local dependencies
+        run: yarn install
+
+      - name: Install dependencies for Landing Page
+        run: |
+          cd src/landing_V2 && yarn install
+
+      - name: Build React app for Landing Page
+        run: |
+          cd src/landing_V2 && echo NEXT_PUBLIC_API_RECAPTCHA=${{ secrets.NEXT_PUBLIC_API_RECAPTCHA }} >> .env && echo NEXT_PUBLIC_WEBHOOK_PATH_KEY=${{ secrets.NEXT_PUBLIC_WEBHOOK_PATH_KEY }} >> .env && echo NEXT_PUBLIC_WEBHOOK_SECRET_KEY=${{ secrets.NEXT_PUBLIC_WEBHOOK_SECRET_KEY }} >> .env && yarn build && yarn export
+
+      - name: Construct testing
+        run: yarn test
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk aws-cdk-lib
+
+      - name: Synthesize AWS CDK app for Landing Page
+        run: npx cdk synth FrontendLandingStackDev
+
+      - name: Deploy React app for Landing Page using AWS CDK
+        run: npx cdk deploy --require-approval never FrontendLandingStackDev
+
+      - name: Invalidate CloudFront cache for Landing Page
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.DEV_LANDING_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
