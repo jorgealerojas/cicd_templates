@@ -1,0 +1,29 @@
+stages:
+  - deploy
+  
+before_script:
+  - apt-get update -qq
+  - apt-get install -qq git dos2unix
+  - mkdir ~/.ssh
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  - echo $SSH_BASTION_KEY > pem_bastion_64.pem
+  - cat pem_bastion_64.pem | base64 -d > ~/pem_bastion.pem
+  - echo $SSH_INSTANCE_KEY > pem_instance_64.pem
+  - cat pem_instance_64.pem | base64 -d > ~/pem_instance.pem
+  - echo $CONFIG |base64 -d > ~/CONFIG
+  - echo "ProxyCommand ssh -i ~/pem_bastion.pem -p 22 $EC2_USER@$IP_BASTION nc %h %p" >> ~/CONFIG
+  - cat ~/CONFIG
+  - chmod 400 ~/pem_bastion.pem && chmod 400 ~/pem_instance.pem
+
+
+
+deploy_develop:
+  stage: deploy
+  environment:
+    name: develop
+    url: dev.test.io
+  script:
+    - echo ssh -F ~/CONFIG  $IP_INSTANCE $CI_COMMIT_REF_NAME "CONNECTION COMMAND"
+    - ssh -F ~/CONFIG  $IP_INSTANCE "sudo service test stop && cd test.io/ && git checkout develop && git pull && yarn install && yarn build && sudo service test start && exit"
+  only:
+    - develop
