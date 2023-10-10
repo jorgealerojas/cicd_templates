@@ -1,0 +1,90 @@
+stages:
+- build
+- deploy
+
+develop Build:
+  image: node:14.16.0
+  stage: build
+  environment: 
+    name: develop
+  script:
+    - echo "Running develop build" 
+    - npm install
+    - echo -e "$ENV" > .env
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+  only:
+    - develop
+
+develop Deploy:
+  image: python:latest
+  stage: deploy
+  environment:
+    name: develop
+  script:
+    - echo "Running staging deployment"
+    - pip install awscli
+    - aws s3 sync ./build s3://$AWS_S3_BUCKET_NAME/ --exclude ".git/*" --exclude ".gitattributes/*" --exclude ".gitignore/*" --exclude ".gitattributes" --exclude ".gitignore" --exclude ".gitlab-ci.yml" --exclude "README.md" --exclude "package-lock.json" --exclude "yarn.lock"
+    - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+  only:
+    - develop
+
+staging Build:
+  image: node:14.16.0
+  stage: build
+  environment: 
+    name: staging
+  script:
+    - echo "Running staging build" 
+    - npm install
+    - echo -e "$ENV" > .env
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+  only:
+    - staging
+
+staging Deploy:
+  image: python:latest
+  stage: deploy
+  environment:
+    name: staging
+  script:
+    - echo "Running staging deployment"
+    - pip install awscli
+    - aws s3 sync ./build s3://$AWS_S3_BUCKET_NAME/ --exclude ".git/*" --exclude ".gitattributes/*" --exclude ".gitignore/*" --exclude ".gitattributes" --exclude ".gitignore" --exclude ".gitlab-ci.yml" --exclude "README.md" --exclude "package-lock.json" --exclude "yarn.lock"
+    - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+  only:
+    - staging
+
+main Build:
+  image: node:14.16.0
+  stage: build
+  environment: 
+    name: main
+  script:
+    - echo "Running main build" 
+    - npm install
+    - echo -e "$ENV" > .env
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+  only:
+    - main
+
+main Deploy:
+  image: python:latest
+  stage: deploy
+  environment:
+    name: main
+  script:
+    - echo "Running main deployment"
+    - pip install awscli
+    - aws s3 sync ./build s3://$AWS_S3_BUCKET_NAME/ --exclude ".git/*" --exclude ".gitattributes/*" --exclude ".gitignore/*" --exclude ".gitattributes" --exclude ".gitignore" --exclude ".gitlab-ci.yml" --exclude "README.md" --exclude "package-lock.json" --exclude "yarn.lock"
+    - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+  only:
+    - main
